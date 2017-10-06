@@ -29,23 +29,26 @@ function tplToMsg($title, $link){
 	$title = urldecode($title);
 	
 	return str_replace(
-		array('%title%', '%link%', '%banner%'),
-		array($title, $link, $banner),
+		['%title%', '%link%', '%banner%'],
+		[$title, $link, $banner],
 		$msg_template
 	);
 }
 
-function get($url,$ref=false){
+function get($url, $ref = false) {
 	global $useragent;
+	
 	$ch = curl_init();
 	linklog("HTTP GET: " . $url);
 	curl_setopt($ch, CURLOPT_URL, $url);
 	curl_setopt($ch, CURLOPT_FAILONERROR, 1); 
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 	curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
-	if ($ref){
+	
+	if ($ref) {
 		curl_setopt($ch, CURLOPT_REFERER, $ref);
 	}
+	
 	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 	curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -63,15 +66,16 @@ function get($url,$ref=false){
 		// var_dump(preg_replace("#([^\d\s\v\w]*)#", '', substr($res, 0, 300)));
 	}
 	
-	if ($httpcode==302 && (stripos($httpurl, 'imgur.com/removed.')!==FALSE || stripos($httpurl, 'imgur.com/gallery.')!==FALSE)){
+	if ($httpcode == 302 && (stripos($httpurl, 'imgur.com/removed.') !== FALSE || stripos($httpurl, 'imgur.com/gallery.') !== FALSE)) {
 		return false;
 	} else {
 		return $res;
 	}
 }
 
-function post($url, $data=array(), $timeout=10){
+function post($url, $data = [], $timeout = null, $newConnect = false) {
 	global $useragent;
+	
 	$ch = curl_init();
 	
 	if (defined("DEBUG") && DEBUG === 1) {
@@ -88,10 +92,16 @@ function post($url, $data=array(), $timeout=10){
 	curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 	curl_setopt($ch, CURLOPT_SAFE_UPLOAD, 1);
 	curl_setopt($ch, CURLOPT_HEADER, 0);
-	if ($timeout){
-		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, ceil($timeout/2));
-		curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+	
+	$timeout = ($timeout === null) ? 10 : $timeout;
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, ceil($timeout/2));
+	curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+	
+	if ($newConnect) {
+		curl_setopt($ch, CURLOPT_FORBID_REUSE, 1);
+		curl_setopt($ch, CURLOPT_FRESH_CONNECT, 1);
 	}
+	
 	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
 	$res = curl_exec($ch);
 	curl_close($ch);
@@ -105,7 +115,10 @@ function imgur($url){
 	curl_setopt($ch, CURLOPT_FAILONERROR, 0); 
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
 	curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
-	curl_setopt($ch, CURLOPT_HTTPHEADER, array("Authorization: Client-ID {$imgurclient}", "Accept: application/json"));
+	curl_setopt($ch, CURLOPT_HTTPHEADER, [
+		"Authorization: Client-ID {$imgurclient}",
+		"Accept: application/json"
+	]);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 	curl_setopt($ch, CURLOPT_HEADER, 0);
@@ -121,7 +134,7 @@ function imgur_album($album){
 		$t = json_decode($t);
 		if (isset($t->success) && $t->success){
 			$i = 0;
-			$links = array();
+			$links = [];
 			foreach($t->data as $item){
 				if ($i++ <= 8){
 				//if ($i++ <= 2){
@@ -148,30 +161,30 @@ function sendError($text){
 	linklog("Error: {$text}");
 	$r = true;
 	/*
-	$r=telegramAPI('sendMessage', array(
+	$r=telegramAPI('sendMessage', [
 		'chat_id'=>$telegram_admin,
 		'text'=>"* Reddit To VK *\n{$text}",
 		// 'parse_mode' => "Markdown",
-	));
+	]);
 	*/
 	return !!$r;
 }
 
 function tgText($text, $previewDisabled = 1){
 	global $channelid;
-	if (trim($text) == "") return false;
+	if (trim($text) === "") return false;
 	
-	$r=telegramAPI('sendMessage', array(
+	$r = telegramAPI('sendMessage', [
 		'chat_id' => $channelid,
 		'text' => $text,
 		'disable_web_page_preview' => $previewDisabled,
 		// 'parse_mode' => "Markdown",
-	));
+	]);
 	
 	return !!$r;
 }
 
-function telegramAPI($method, $data=array()){
+function telegramAPI($method, $data = []) {
 	global $useragent, $telegram_token;
 	
 	if (defined("DEBUG") && DEBUG === 1) {
@@ -182,22 +195,12 @@ function telegramAPI($method, $data=array()){
 	
 	if (!isset($telegram_token)) return false;
 	
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, "https://api.telegram.org/bot{$telegram_token}/{$method}");
-	curl_setopt($ch, CURLOPT_FAILONERROR, 0); 
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-	curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-	curl_setopt($ch, CURLOPT_SAFE_UPLOAD, 1);
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
-	curl_setopt($ch, CURLOPT_POST, TRUE);
-	curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-	$res = curl_exec($ch);
-	curl_close($ch);
-	
-	$res=json_decode($res);
+	$res = post(
+		"https://api.telegram.org/bot{$telegram_token}/{$method}",
+		$data
+	);
+
+	$res = json_decode($res);
 	
 	if (defined("DEBUG") && DEBUG === 1) {
 		linklog("TelegramAPI result:");
@@ -252,41 +255,16 @@ function tgPhoto($photoUrl, $caption=false){
 				
 				$curlFile = new \CURLFile($tempName, $fMime, $fName);
 
-				$postFields = array(
+				$postFields = [
 					'chat_id' => $channelid,
-					'photo' => $curlFile
-				);
+					'photo'   => $curlFile
+				];
 				
 				if ($caption !== FALSE){
 					$postFields['caption'] = substr($caption, 0, 180);
 				}
 				
-				$ch = curl_init();
-				curl_setopt($ch, CURLOPT_URL, $url);
-				curl_setopt($ch, CURLOPT_FAILONERROR, 1);
-				curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
-				curl_setopt($ch, CURLOPT_POST, 1);
-				curl_setopt($ch, CURLOPT_SAFE_UPLOAD, 1);
-				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-				curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-				curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
-				curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-				// curl_setopt($ch, CURLOPT_HTTPHEADER, array('Expect:'));
-				curl_setopt($ch, CURLOPT_HEADER, 1);
-				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-				curl_setopt($ch, CURLOPT_FORBID_REUSE, 1);
-				curl_setopt($ch, CURLOPT_FRESH_CONNECT, 1);
-				$res = curl_exec($ch);
-				
-				#if (defined("DEBUG") && DEBUG === 1) {
-				#	$curlInfo = curl_getinfo($ch);
-				#	linklog("TG PHOTO: curl info:");
-				#	var_dump($curlInfo);
-				#}
-	
-				curl_close($ch);
+				$res = post($url, $postFields, null, true);
 				
 				@unlink($tempName);
 				
@@ -331,9 +309,9 @@ function linklog($text, $color='normal'){
 function getPostponedNews(){
 	global $groupid;
 	
-	$t=vkapi("execute.getPostponedNews", array(
+	$t=vkapi("execute.getPostponedNews", [
 		'owner_id'=>"-{$groupid}"
-	));
+	]);
 	
 	return (isset($t->response)) ? $t->response : FALSE;
 }
@@ -355,7 +333,7 @@ function fetchFeed(){
 function checkTitle($title){
 	global $bannedWords, $bannedWordsSubreddit;
 	
-	$bannedWordsSubreddit = (is_array($bannedWordsSubreddit)) ? $bannedWordsSubreddit : array();
+	$bannedWordsSubreddit = (is_array($bannedWordsSubreddit)) ? $bannedWordsSubreddit : [];
 	$tmp = array_merge($bannedWords, $bannedWordsSubreddit);
 	
 	foreach ($tmp as $word){
