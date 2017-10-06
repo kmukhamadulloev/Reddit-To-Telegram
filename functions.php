@@ -1,7 +1,7 @@
 <?
 error_reporting(E_ALL);
 
-function vardump($var){
+function vardump($var) {
 	// Return var_dump as string
 	ob_start();
 	var_dump($var);
@@ -10,18 +10,19 @@ function vardump($var){
 	return $vars;
 }
 
-function shortLink($link){
-	if (strlen($link)<=47){
+function shortLink($link) {
+	if (strlen($link) <= 47) {
 		return $link;
 	} else {
 		return substr($link, 0, 23) . '...' . substr($link, -23, 24);
 	}
 }
 
-function tplToMsg($title, $link){
+function tplToMsg($title, $link) {
 	global $msg_banners, $msg_template;
-	if (isset($msg_banners) && count($msg_banners)>0){
-		$banner = (mt_rand(1,3)==3) ? '' : "\n\n" . $msg_banners[array_rand($msg_banners, 1)];
+	
+	if (isset($msg_banners) && count($msg_banners) > 0) {
+		$banner = (mt_rand(1, 3) === 3) ? '' : "\n\n" . $msg_banners[array_rand($msg_banners, 1)];
 	} else {
 		$banner = "";
 	}
@@ -35,7 +36,7 @@ function tplToMsg($title, $link){
 	);
 }
 
-function get($url, $ref = false) {
+function get($url, $ref = false, $headers = []) {
 	global $useragent;
 	
 	$ch = curl_init();
@@ -47,6 +48,10 @@ function get($url, $ref = false) {
 	
 	if ($ref) {
 		curl_setopt($ch, CURLOPT_REFERER, $ref);
+	}
+	
+	if (is_array($headers) && !empty($headers)) {
+		curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 	}
 	
 	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
@@ -66,7 +71,7 @@ function get($url, $ref = false) {
 		// var_dump(preg_replace("#([^\d\s\v\w]*)#", '', substr($res, 0, 300)));
 	}
 	
-	if ($httpcode == 302 && (stripos($httpurl, 'imgur.com/removed.') !== FALSE || stripos($httpurl, 'imgur.com/gallery.') !== FALSE)) {
+	if ($httpcode == 302 && (stripos($httpurl, 'imgur.com/removed.') !== false || stripos($httpurl, 'imgur.com/gallery.') !== false)) {
 		return false;
 	} else {
 		return $res;
@@ -108,35 +113,33 @@ function post($url, $data = [], $timeout = null, $newConnect = false) {
 	return $res;
 }
 
-function imgur($url){
-	global $useragent, $imgurclient, $imgurbase;
-	$ch = curl_init(); 
-	curl_setopt($ch, CURLOPT_URL, $imgurbase . $url);
-	curl_setopt($ch, CURLOPT_FAILONERROR, 0); 
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER,1);
-	curl_setopt($ch, CURLOPT_USERAGENT, $useragent);
-	curl_setopt($ch, CURLOPT_HTTPHEADER, [
-		"Authorization: Client-ID {$imgurclient}",
-		"Accept: application/json"
-	]);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-	curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
-	$res = curl_exec($ch);
-	curl_close($ch);
+function imgur($url) {
+	global $imgurclient, $imgurbase;
+	
+	$res = get(
+		$imgurbase . $url,
+		false,
+		[
+			"Authorization: Client-ID {$imgurclient}",
+			"Accept: application/json"
+		]
+	);
+	
 	return $res;
 }
 
 function imgur_album($album){
 	$t = imgur("/gallery/album/{$album}/images");
-	if ($t !== FALSE){
+	
+	if ($t !== false) {
 		$t = json_decode($t);
-		if (isset($t->success) && $t->success){
+		
+		if (isset($t->success) && $t->success) {
 			$i = 0;
 			$links = [];
-			foreach($t->data as $item){
-				if ($i++ <= 8){
+			
+			foreach($t->data as $item) {
+				if ($i++ <= 8) {
 				//if ($i++ <= 2){
 					array_push($links, $item->link);
 				} else {
@@ -156,7 +159,7 @@ function imgur_album($album){
 	}
 }
 
-function sendError($text){
+function sendError($text) {
 	global $telegram_admin;
 	linklog("Error: {$text}");
 	$r = true;
@@ -170,7 +173,7 @@ function sendError($text){
 	return !!$r;
 }
 
-function tgText($text, $previewDisabled = 1){
+function tgText($text, $previewDisabled = 1) {
 	global $channelid;
 	if (trim($text) === "") return false;
 	
@@ -207,7 +210,7 @@ function telegramAPI($method, $data = []) {
 		var_dump($res);
 	}
 	
-	if (isset($res->ok) && $res->ok===FALSE){
+	if (isset($res->ok) && $res->ok===false) {
 		return false;
 	}
 	
@@ -215,8 +218,8 @@ function telegramAPI($method, $data = []) {
 }
 
 
-function tgPhoto($photoUrl, $caption=false){
-	global $useragent, $telegram_token, $channelid;
+function tgPhoto($photoUrl, $caption = false) {
+	global $telegram_token, $channelid;
 	
 	if (!isset($telegram_token)) return false;
 	
@@ -226,7 +229,8 @@ function tgPhoto($photoUrl, $caption=false){
 	
 	$tempName = sys_get_temp_dir() . "/vktg_" . md5(time() . mt_rand(100, 999)) . ".jpg";
 	$image = get($photoUrl);
-	if ($image !== FALSE) {
+	
+	if ($image !== false) {
 		if (file_put_contents($tempName, $image)) {
 			if (defined("DEBUG") && DEBUG === 1) {
 				linklog("Image saved to: {$tempName}, uploading to Telegram");
@@ -291,32 +295,33 @@ function tgPhoto($photoUrl, $caption=false){
 	}
 }
 
-function linklog($text, $color='normal'){
-	$date="[" . date("H:i") . "] ";
+function linklog($text, $color = 'normal') {
+	$date = "[" . date("H:i") . "] ";
 	switch($color){
-		case "red": $clr="\033[1;31m"; break;
-		case "blue": $clr="\033[1;36m"; break;
-		case "green": $clr="\033[1;32m"; break;
-		case "yellow": $clr="\033[1;33m"; break;
-		case "gray": $clr="\033[1;30m"; break;
-		default: $clr="\033[0m";
+		case "red":    $clr = "\033[1;31m"; break;
+		case "blue":   $clr = "\033[1;36m"; break;
+		case "green":  $clr = "\033[1;32m"; break;
+		case "yellow": $clr = "\033[1;33m"; break;
+		case "gray":   $clr = "\033[1;30m"; break;
+		default:       $clr = "\033[0m";
 	}
 	
-	$line="{$clr}{$date}{$text}\033[0m";
+	$line = "{$clr}{$date}{$text}\033[0m";
+	
 	echo $line . "\n";
 }
 
-function getPostponedNews(){
+function getPostponedNews() {
 	global $groupid;
 	
-	$t=vkapi("execute.getPostponedNews", [
+	$t = vkapi("execute.getPostponedNews", [
 		'owner_id'=>"-{$groupid}"
 	]);
 	
 	return (isset($t->response)) ? $t->response : FALSE;
 }
 
-function fetchFeed(){
+function fetchFeed() {
 	global $subreddits;
 	
 	$subreddit = $subreddits[array_rand($subreddits, 1)];
@@ -330,7 +335,7 @@ function fetchFeed(){
 }
 
 // Checking for banned words: true = okay, false = skip post
-function checkTitle($title){
+function checkTitle($title) {
 	global $bannedWords, $bannedWordsSubreddit;
 	
 	$bannedWordsSubreddit = (is_array($bannedWordsSubreddit)) ? $bannedWordsSubreddit : [];
@@ -345,13 +350,13 @@ function checkTitle($title){
 	return true;
 }
 
-function createPost($id, $title, $photoArray){
+function createPost($id, $title, $photoArray) {
 	global $sqc, $temp_dir;
 	
 	$result = false;
 
 	if (is_array($photoArray) && count($photoArray) > 0){
-		$msg=tplToMsg($title, "redd.it/{$id}");
+		$msg = tplToMsg($title, "redd.it/{$id}");
 		// tgText($msg);
 		$result = true;
 		for ($i = 0; $i < count($photoArray); $i++) {
@@ -361,13 +366,13 @@ function createPost($id, $title, $photoArray){
 			while ($try < 3 && !$res) {
 				$try++;
 				$res = tgPhoto($photoArray[$i], $msg);
-				if ($res === FALSE) {
+				if ($res === false) {
 				// 	tgText("Error uploading photo from URL: {$photoArray[$i]}");
 					linklog("> Uploading photo failed, attempt {$try}.");
 				}
 			}
 			
-			if ($res === FALSE) {
+			if ($res === false) {
 				$result = false;
 				break;
 			}
@@ -377,20 +382,18 @@ function createPost($id, $title, $photoArray){
 			}
 		}
 		
-		if ($result === TRUE) {
-			$sql=$sqc->query("INSERT INTO reddittotg (id, result) VALUES ('{$id}', 'ok');");
+		if ($result === true) {
 			linklog("> Post published [id: {$id}].");
-			$result = true;
 		} else {
-			$sql=$sqc->query("INSERT INTO reddittotg (id, result) VALUES ('{$id}', 'error');");
 			linklog("> Error while publishing post [id: {$id}].");
-			$result = false;
 		}
 	} else {
-		$sql=$sqc->query("INSERT INTO reddittotg (id, result) VALUES ('{$id}', 'error');");
 		sendError("Can't get post images [id: {$id}]!");
 		$result = false;
 	}
+	
+	$sqlResult = ($result) ? 'ok' : 'error';
+	$sql = $sqc->query("INSERT INTO reddittotg (id, result) VALUES ('{$id}', '{$sqlResult}');");
 	
 	return $result;
 }
